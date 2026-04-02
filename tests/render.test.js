@@ -62,11 +62,11 @@ describe('buildCard', () => {
     expect(card.querySelector('.postcode').textContent.trim()).toBe('CV11 6FA');
   });
 
-  it('includes a link to the official EPC register when lmk-key is present', () => {
+  it('includes a link to the official EPC register when postcode is present', () => {
     const card = buildCard(fullRow);
     const link = card.querySelector('a[href*="find-energy-certificate"]');
     expect(link).not.toBeNull();
-    expect(link.href).toContain('abc123def456');
+    expect(link.href).toContain('CV11');
   });
 
   it('opens the official register link in a new tab', () => {
@@ -75,9 +75,9 @@ describe('buildCard', () => {
     expect(link.target).toBe('_blank');
   });
 
-  it('omits the official register link when lmk-key is absent', () => {
+  it('omits the official register link when postcode is absent', () => {
     const row = { ...fullRow };
-    delete row['lmk-key'];
+    delete row['postcode'];
     const card = buildCard(row);
     expect(card.querySelector('a[href*="find-energy-certificate"]')).toBeNull();
   });

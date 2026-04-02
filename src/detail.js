@@ -1,6 +1,6 @@
 import { getRatingColor, getRatingTextColor, formatDate } from './utils.js';
 
-const REGISTER_BASE = 'https://find-energy-certificate.service.gov.uk/energy-certificate';
+const REGISTER_SEARCH = 'https://find-energy-certificate.service.gov.uk/find-a-certificate/search-by-postcode';
 
 const EFF_COLORS = {
   'Very Good': '#00813d',
@@ -131,13 +131,13 @@ export function buildDetailPage(row) {
     { label: 'Tenure',           value: row['tenure'] },
     { label: 'Report type',      value: row['report-type'] },
   ]);
-  if (lmkKey) {
+  if (postcode) {
     const link = document.createElement('a');
-    link.href = `${REGISTER_BASE}/${lmkKey}`;
+    link.href = `${REGISTER_SEARCH}?postcode=${encodeURIComponent(postcode)}`;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     link.className = 'register-link';
-    link.textContent = 'View original certificate on EPC Register ↗';
+    link.textContent = 'Search this postcode on EPC Register ↗';
     certCard.appendChild(link);
   }
   grid.appendChild(certCard);

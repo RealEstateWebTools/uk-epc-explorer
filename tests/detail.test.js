@@ -391,9 +391,9 @@ describe('buildDetailPage', () => {
     expect(link).not.toBeNull();
   });
 
-  it('includes the lmk-key in the official register link', () => {
+  it('includes the postcode in the official register link', () => {
     const link = page.querySelector('a[href*="find-energy-certificate"]');
-    expect(link.href).toContain('31d68876');
+    expect(link.href).toContain('CV11');
   });
 
   it('opens the official register link in a new tab', () => {

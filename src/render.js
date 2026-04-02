@@ -1,6 +1,6 @@
 import { getRatingColor, getRatingTextColor, formatDate, capitalize } from './utils.js';
 
-const REGISTER_BASE = 'https://find-energy-certificate.service.gov.uk/energy-certificate';
+const REGISTER_SEARCH = 'https://find-energy-certificate.service.gov.uk/find-a-certificate/search-by-postcode';
 
 export function buildCard(row) {
   const r = row['current-energy-rating'] || '?';
@@ -14,9 +14,8 @@ export function buildCard(row) {
   const builtForm = row['built-form'] || '';
   const tenure = row['tenure'] || '–';
   const totalFloor = row['total-floor-area'] ? `${row['total-floor-area']} m²` : '–';
-  const lmkKey = row['lmk-key'] || '';
-  const registerLink = lmkKey
-    ? `<a class="card-register-link" href="${REGISTER_BASE}/${lmkKey}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View on EPC Register ↗</a>`
+  const registerLink = postcode
+    ? `<a class="card-register-link" href="${REGISTER_SEARCH}?postcode=${encodeURIComponent(postcode)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View on EPC Register ↗</a>`
     : '';
 
   const textColor = getRatingTextColor(r);

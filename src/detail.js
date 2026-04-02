@@ -269,5 +269,44 @@ export function buildDetailPage(row) {
   const relLinks = buildExternalLinks(row);
   if (relLinks) page.appendChild(relLinks);
 
+  if (lmkKey) page.appendChild(buildNotesSection(lmkKey));
+
   return page;
+}
+
+function buildNotesSection(lmkKey) {
+  const storageKey = `epc_note_${lmkKey}`;
+  const saved = localStorage.getItem(storageKey) || '';
+
+  const section = document.createElement('div');
+  section.className = 'notes-section';
+  section.innerHTML = `
+    <h3 class="notes-title">My Notes</h3>
+    <textarea class="notes-textarea" placeholder="Add your notes about this property…" maxlength="2000">${saved}</textarea>
+    <div class="notes-footer">
+      <span class="notes-status"></span>
+      <span class="notes-gdpr">Notes are saved only in your browser and never sent anywhere.</span>
+    </div>
+  `;
+
+  const textarea = section.querySelector('.notes-textarea');
+  const status = section.querySelector('.notes-status');
+  let timer;
+
+  textarea.addEventListener('input', () => {
+    clearTimeout(timer);
+    status.textContent = '';
+    timer = setTimeout(() => {
+      const val = textarea.value.trim();
+      if (val) {
+        localStorage.setItem(storageKey, textarea.value);
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+      status.textContent = 'Saved';
+      setTimeout(() => { status.textContent = ''; }, 2000);
+    }, 600);
+  });
+
+  return section;
 }

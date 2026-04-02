@@ -560,12 +560,13 @@
 
 <div class="container">
 
-  <!-- Credentials — always visible so they can be set before navigating to a detail URL -->
+  <!-- Credentials — optional; only needed if the server-side proxy is not configured -->
   <div class="api-key-notice" id="cred-notice">
-    <strong>API key required</strong> — EPC data is free but needs a key.
+    <strong>Optional: personal API credentials</strong> — This site can search EPC data without a key.
+    If you have your own key you can enter it below; it will be used as a fallback if the server is unavailable.
     <a href="https://epc.opendatacommunities.org/login" target="_blank">Register at epc.opendatacommunities.org</a> (instant, free).
     <details id="cred-details">
-      <summary>Enter your credentials</summary>
+      <summary>Enter your credentials (optional)</summary>
       <div class="api-key-row">
         <div>
           <label for="api-email">Email</label>
@@ -577,9 +578,8 @@
         </div>
       </div>
       <p style="margin-top:0.5rem;font-size:0.8rem;color:#888">
-        Your credentials are saved in your browser's <code>localStorage</code> only — they are never stored on any server.
-        Searches are sent directly from your browser to the EPC Register API
-        (<code>epc.opendatacommunities.org</code>). No data passes through this site's servers.
+        If entered, your credentials are saved in your browser's <code>localStorage</code> only and used as a fallback
+        when the server proxy is unavailable. Searches normally go via this site's server and your credentials are not exposed.
       </p>
     </details>
   </div>
@@ -590,7 +590,7 @@
 
 <script type="module">
 import { renderResults, renderPagination, renderSimplePagination } from '/src/render.js';
-import { validateSearch, buildSearchParamsFor, parseApiResponse, fetchEpcData, fetchCertificate } from '/src/api.js';
+import { validateSearch, buildSearchParamsFor, parseApiResponse, fetchWithFallback, fetchCertificateWithFallback } from '/src/api.js';
 import { buildDetailPage } from '/src/detail.js';
 import { parseRoute, parseSearchFilters, buildSearchUrl, navigate } from '/src/router.js';
 import { sortResults, filterByRating, SORT_FIELDS } from '/src/sort-filter.js';
@@ -617,8 +617,7 @@ window.addEventListener('load', () => {
   const key = localStorage.getItem('epc_key');
   if (email) document.getElementById('api-email').value = email;
   if (key) document.getElementById('api-key').value = key;
-  // Open the details if no credentials saved yet
-  if (!email || !key) document.getElementById('cred-details').open = true;
+  // Credentials are optional — leave details closed by default
 });
 
 // ── Toolbar state ──────────────────────────────────────────────────────────────
@@ -800,7 +799,7 @@ async function renderDetail(root, lmkKey) {
   root.innerHTML = '<div style="padding:2rem;text-align:center"><span class="spinner"></span> Loading certificate…</div>';
   const creds = getCredentials();
   try {
-    const row = await fetchCertificate(lmkKey, creds);
+    const row = await fetchCertificateWithFallback(lmkKey, creds);
     root.innerHTML = '';
     root.appendChild(buildDetailPage(row));
     root.querySelector('a[href="/"]').addEventListener('click', e => {
@@ -824,7 +823,7 @@ window.runSearch = async function runSearch(page = 1, prebuiltFilters) {
   };
   const creds = getCredentials();
 
-  const validationError = validateSearch(filters, creds);
+  const validationError = validateSearch(filters);
   if (validationError) {
     setStatus(`<span style="color:#c0392b">${validationError}</span>`);
     return;
@@ -845,7 +844,7 @@ window.runSearch = async function runSearch(page = 1, prebuiltFilters) {
 
   try {
     const { url, params } = buildSearchParamsFor(propertyType, filters, page);
-    const data = await fetchEpcData(params, creds, url);
+    const data = await fetchWithFallback(params, creds, url);
     const { rows, total, hasMore } = parseApiResponse(data);
     const totalResults = total ?? rows.length;
 

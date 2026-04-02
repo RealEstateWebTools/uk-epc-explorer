@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { buildSearchParams, validateSearch, fetchEpcData, parseApiResponse, fetchCertificate, buildSearchParamsFor } from '../src/api.js';
+import { buildSearchParams, validateSearch, fetchEpcData, parseApiResponse, fetchCertificate, buildSearchParamsFor, toProxyUrl, fetchWithFallback, fetchCertificateWithFallback } from '../src/api.js';
 
 const PAGE_SIZE = 25;
 
@@ -24,25 +24,9 @@ describe('validateSearch', () => {
     expect(typeof msg).toBe('string');
   });
 
-  it('returns a message when credentials are missing completely', () => {
+  it('returns null when credentials are empty (proxy may handle auth)', () => {
     const msg = validateSearch({ postcode: 'SW1A', localAuth: '', rating: '' }, { email: '', key: '' });
-    expect(msg).not.toBeNull();
-  });
-
-  it('returns a message when only email is provided (no key)', () => {
-    const msg = validateSearch({ postcode: 'SW1A', localAuth: '', rating: '' }, { email: 'a@b.com', key: '' });
-    expect(msg).not.toBeNull();
-  });
-
-  it('returns a message when only key is provided (no email)', () => {
-    const msg = validateSearch({ postcode: 'SW1A', localAuth: '', rating: '' }, { email: '', key: 'mykey' });
-    expect(msg).not.toBeNull();
-  });
-
-  it('checks search terms before credentials', () => {
-    // No search term AND no credentials — the search term error should surface first
-    const msg = validateSearch({ postcode: '', localAuth: '', rating: '' }, { email: '', key: '' });
-    expect(msg.toLowerCase()).toMatch(/postcode|local|rating/);
+    expect(msg).toBeNull();
   });
 });
 
@@ -308,6 +292,172 @@ describe('fetchCertificate', () => {
     await fetchCertificate(legacyKey, creds);
     const url = fetch.mock.calls[0][0];
     expect(url).toContain(legacyKey);
+  });
+});
+
+// ─── toProxyUrl ──────────────────────────────────────────────────────────────
+
+describe('toProxyUrl', () => {
+  it('converts a domestic search URL to a proxy path', () => {
+    expect(toProxyUrl('https://epc.opendatacommunities.org/api/v1/domestic/search'))
+      .toBe('/api/domestic/search');
+  });
+
+  it('converts a non-domestic search URL to a proxy path', () => {
+    expect(toProxyUrl('https://epc.opendatacommunities.org/api/v1/non-domestic/search'))
+      .toBe('/api/non-domestic/search');
+  });
+
+  it('converts a certificate URL to a proxy path', () => {
+    const lmk = '31d68876c3693c993e2791b05544c569';
+    expect(toProxyUrl(`https://epc.opendatacommunities.org/api/v1/domestic/certificate/${lmk}`))
+      .toBe(`/api/domestic/certificate/${lmk}`);
+  });
+});
+
+// ─── fetchWithFallback ────────────────────────────────────────────────────────
+
+describe('fetchWithFallback', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const creds = { email: 'test@example.com', key: 'apikey123' };
+  const noCreds = { email: '', key: '' };
+  const params = new URLSearchParams({ postcode: 'CV11 6FA', size: '25', from: '0' });
+  const baseUrl = 'https://epc.opendatacommunities.org/api/v1/domestic/search';
+  const okData = { rows: [{ 'current-energy-rating': 'C' }] };
+
+  function mockFetch(status, body) {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status,
+      ok: status >= 200 && status < 300,
+      statusText: status === 200 ? 'OK' : 'Error',
+      json: () => Promise.resolve(body),
+    }));
+  }
+
+  it('returns data from proxy when proxy succeeds (200)', async () => {
+    mockFetch(200, okData);
+    const data = await fetchWithFallback(params, noCreds, baseUrl);
+    expect(data).toEqual(okData);
+  });
+
+  it('calls proxy URL (not direct EPC URL) on first attempt', async () => {
+    mockFetch(200, okData);
+    await fetchWithFallback(params, noCreds, baseUrl);
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/api/domestic/search');
+    expect(url).not.toContain('epc.opendatacommunities.org');
+  });
+
+  it('does not send Authorization header in proxy request', async () => {
+    mockFetch(200, okData);
+    await fetchWithFallback(params, noCreds, baseUrl);
+    const { headers } = fetch.mock.calls[0][1];
+    expect(headers['Authorization']).toBeUndefined();
+  });
+
+  it('falls back to direct when proxy returns 503 and creds are available', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ status: 503, ok: false, statusText: 'Service Unavailable', json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ status: 200, ok: true, statusText: 'OK', json: () => Promise.resolve(okData) })
+    );
+    const data = await fetchWithFallback(params, creds, baseUrl);
+    expect(data).toEqual(okData);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('second call (direct fallback) sends Basic Auth header', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ status: 503, ok: false, statusText: 'Service Unavailable', json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ status: 200, ok: true, statusText: 'OK', json: () => Promise.resolve(okData) })
+    );
+    await fetchWithFallback(params, creds, baseUrl);
+    const { headers } = fetch.mock.calls[1][1];
+    expect(headers['Authorization']).toBe('Basic ' + btoa('test@example.com:apikey123'));
+  });
+
+  it('falls back to direct when proxy throws a network error and creds are available', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce({ status: 200, ok: true, statusText: 'OK', json: () => Promise.resolve(okData) })
+    );
+    const data = await fetchWithFallback(params, creds, baseUrl);
+    expect(data).toEqual(okData);
+  });
+
+  it('throws a helpful error when proxy returns 503 and no creds are available', async () => {
+    mockFetch(503, {});
+    await expect(fetchWithFallback(params, noCreds, baseUrl)).rejects.toThrow(/credentials/i);
+  });
+
+  it('throws a helpful error when proxy throws network error and no creds are available', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    await expect(fetchWithFallback(params, noCreds, baseUrl)).rejects.toThrow(/credentials/i);
+  });
+
+  it('propagates non-503 errors from proxy immediately (no fallback)', async () => {
+    mockFetch(401, {});
+    await expect(fetchWithFallback(params, creds, baseUrl)).rejects.toThrow(/credentials/i);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates 500 errors from proxy immediately', async () => {
+    mockFetch(500, {});
+    await expect(fetchWithFallback(params, creds, baseUrl)).rejects.toThrow(/500/);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── fetchCertificateWithFallback ─────────────────────────────────────────────
+
+describe('fetchCertificateWithFallback', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const creds = { email: 'test@example.com', key: 'apikey123' };
+  const noCreds = { email: '', key: '' };
+  const lmkKey = '31d68876c3693c993e2791b05544c569e9bc07916389b667aab0b892f7874550';
+  const certData = { rows: [{ 'lmk-key': lmkKey, 'current-energy-rating': 'D' }] };
+
+  function mockFetch(status, body) {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status,
+      ok: status >= 200 && status < 300,
+      statusText: status === 200 ? 'OK' : 'Error',
+      json: () => Promise.resolve(body),
+    }));
+  }
+
+  it('returns certificate row from proxy when proxy succeeds', async () => {
+    mockFetch(200, certData);
+    const row = await fetchCertificateWithFallback(lmkKey, noCreds);
+    expect(row['lmk-key']).toBe(lmkKey);
+  });
+
+  it('calls proxy certificate URL on first attempt', async () => {
+    mockFetch(200, certData);
+    await fetchCertificateWithFallback(lmkKey, noCreds);
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain(`/api/domestic/certificate/${lmkKey}`);
+    expect(url).not.toContain('epc.opendatacommunities.org');
+  });
+
+  it('falls back to direct when proxy returns 503 and creds are available', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ status: 503, ok: false, statusText: 'Service Unavailable', json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ status: 200, ok: true, statusText: 'OK', json: () => Promise.resolve(certData) })
+    );
+    const row = await fetchCertificateWithFallback(lmkKey, creds);
+    expect(row['lmk-key']).toBe(lmkKey);
+  });
+
+  it('throws helpful error when proxy returns 503 and no creds', async () => {
+    mockFetch(503, {});
+    await expect(fetchCertificateWithFallback(lmkKey, noCreds)).rejects.toThrow(/credentials/i);
+  });
+
+  it('throws not-found on 404 from proxy', async () => {
+    mockFetch(404, {});
+    await expect(fetchCertificateWithFallback(lmkKey, noCreds)).rejects.toThrow(/not found/i);
   });
 });
 

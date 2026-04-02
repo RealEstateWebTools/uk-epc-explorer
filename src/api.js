@@ -6,15 +6,82 @@ const API_ROOTS = {
 const API_ROOT = API_ROOTS.domestic;
 const API_BASE = `${API_ROOT}/search`;
 
-export function validateSearch(filters, creds) {
+export function validateSearch(filters) {
   const { postcode, localAuth, rating } = filters;
   if (!postcode && !localAuth && !rating) {
     return 'Please enter at least a postcode, local authority, or rating.';
   }
-  if (!creds.email || !creds.key) {
-    return 'Please enter your EPC API credentials above.';
-  }
   return null;
+}
+
+const EPC_API_ORIGIN = 'https://epc.opendatacommunities.org/api/v1/';
+
+export function toProxyUrl(epcBaseUrl) {
+  const path = epcBaseUrl.replace(EPC_API_ORIGIN, '');
+  return `/api/${path}`;
+}
+
+export async function fetchWithFallback(params, creds, baseUrl = API_BASE) {
+  const proxyUrl = `${toProxyUrl(baseUrl)}?${params}`;
+  let proxyFailed = false;
+
+  try {
+    const res = await fetch(proxyUrl, { headers: { 'Accept': 'application/json' } });
+    if (res.status === 503) {
+      proxyFailed = true;
+    } else if (res.status === 401) {
+      throw new Error('Invalid credentials. Check your email and API key.');
+    } else if (!res.ok) {
+      throw new Error(`API error: ${res.status} ${res.statusText}`);
+    } else {
+      return res.json();
+    }
+  } catch (err) {
+    if (err instanceof TypeError) {
+      proxyFailed = true;
+    } else {
+      throw err;
+    }
+  }
+
+  if (!creds.email || !creds.key) {
+    throw new Error('No credentials available. Please enter your EPC API credentials.');
+  }
+  return fetchEpcData(params, creds, baseUrl);
+}
+
+export async function fetchCertificateWithFallback(lmkKey, creds) {
+  const proxyUrl = `/api/domestic/certificate/${lmkKey}`;
+  let proxyFailed = false;
+
+  try {
+    const res = await fetch(proxyUrl, { headers: { 'Accept': 'application/json' } });
+    if (res.status === 503) {
+      proxyFailed = true;
+    } else if (res.status === 401) {
+      throw new Error('Invalid credentials. Check your email and API key.');
+    } else if (res.status === 404) {
+      throw new Error('Certificate not found.');
+    } else if (!res.ok) {
+      throw new Error(`API error: ${res.status} ${res.statusText}`);
+    } else {
+      const data = await res.json();
+      const rows = data.rows || [];
+      if (rows.length === 0) throw new Error('Certificate not found.');
+      return rows[0];
+    }
+  } catch (err) {
+    if (err instanceof TypeError) {
+      proxyFailed = true;
+    } else {
+      throw err;
+    }
+  }
+
+  if (!creds.email || !creds.key) {
+    throw new Error('No credentials available. Please enter your EPC API credentials.');
+  }
+  return fetchCertificate(lmkKey, creds);
 }
 
 export function buildSearchParamsFor(type, filters, page) {

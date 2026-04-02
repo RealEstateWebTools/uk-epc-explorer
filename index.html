@@ -344,15 +344,14 @@
 
 </div>
 
-<script>
-const RATING_COLORS = {
-  A: '#00813d', B: '#1fac28', C: '#8dba11',
-  D: '#ffd500', E: '#f4a020', F: '#e55a10', G: '#e01616'
-};
+<script type="module">
+import { RATING_COLORS, getRatingColor, formatDate, capitalize } from './src/utils.js';
+import { buildCard, renderResults, renderPagination, renderSimplePagination } from './src/render.js';
+import { validateSearch, buildSearchParams, parseApiResponse, fetchEpcData } from './src/api.js';
 
+const PAGE_SIZE = 25;
 let currentPage = 1;
 let totalResults = 0;
-const PAGE_SIZE = 25;
 
 function getCredentials() {
   const email = document.getElementById('api-email').value.trim();
@@ -361,11 +360,10 @@ function getCredentials() {
   if (key) localStorage.setItem('epc_key', key);
   return {
     email: email || localStorage.getItem('epc_email') || '',
-    key: key || localStorage.getItem('epc_key') || ''
+    key: key || localStorage.getItem('epc_key') || '',
   };
 }
 
-// Pre-fill from localStorage
 window.addEventListener('load', () => {
   const email = localStorage.getItem('epc_email');
   const key = localStorage.getItem('epc_key');
@@ -373,20 +371,18 @@ window.addEventListener('load', () => {
   if (key) document.getElementById('api-key').value = key;
 });
 
-async function search(page = 1) {
-  const postcode = document.getElementById('postcode').value.trim();
-  const localAuth = document.getElementById('local-authority').value.trim();
-  const rating = document.getElementById('rating').value;
-  const fromYear = document.getElementById('from-year').value.trim();
+window.search = async function search(page = 1) {
+  const filters = {
+    postcode: document.getElementById('postcode').value.trim(),
+    localAuth: document.getElementById('local-authority').value.trim(),
+    rating: document.getElementById('rating').value,
+    fromYear: document.getElementById('from-year').value.trim(),
+  };
   const creds = getCredentials();
 
-  if (!postcode && !localAuth && !rating) {
-    setStatus('<span style="color:#c0392b">Please enter at least a postcode, local authority, or rating.</span>');
-    return;
-  }
-
-  if (!creds.email || !creds.key) {
-    setStatus('<span style="color:#c0392b">Please enter your EPC API credentials above.</span>');
+  const validationError = validateSearch(filters, creds);
+  if (validationError) {
+    setStatus(`<span style="color:#c0392b">${validationError}</span>`);
     return;
   }
 
@@ -396,44 +392,22 @@ async function search(page = 1) {
   document.getElementById('results').innerHTML = '';
   document.getElementById('pagination').innerHTML = '';
 
-  const params = new URLSearchParams();
-  if (postcode) params.set('postcode', postcode);
-  if (localAuth) params.set('local-authority', localAuth);
-  if (rating) params.set('energy-rating', rating);
-  if (fromYear) params.set('from-year', fromYear);
-  params.set('size', PAGE_SIZE);
-  params.set('from', (page - 1) * PAGE_SIZE);
-
-  const apiUrl = `https://epc.opendatacommunities.org/api/v1/domestic/search?${params}`;
-
   try {
-    const res = await fetch(apiUrl, {
-      headers: {
-        'Authorization': 'Basic ' + btoa(`${creds.email}:${creds.key}`),
-        'Accept': 'application/json'
-      }
-    });
-
-    if (res.status === 401) throw new Error('Invalid credentials. Check your email and API key.');
-    if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
-
-    const data = await res.json();
-    const rows = data.rows || [];
-    // API may not return a total count; fall back to rows length
-    totalResults = data.total != null ? data.total : rows.length;
-    const hasMore = rows.length === PAGE_SIZE;
+    const params = buildSearchParams(filters, page);
+    const data = await fetchEpcData(params, creds);
+    const { rows, total, hasMore } = parseApiResponse(data);
+    totalResults = total ?? rows.length;
 
     if (rows.length === 0) {
       setStatus('');
       document.getElementById('results').innerHTML = '<div class="empty-state">No certificates found for your search.</div>';
     } else {
-      renderResults(rows);
-      // Only show pagination if API gave us a total, or if there's a full page (might be more)
-      if (data.total != null) {
-        renderPagination(page, totalResults);
+      renderResults(rows, document.getElementById('results'));
+      if (total != null) {
+        renderPagination(page, totalResults, document.getElementById('pagination'));
         setStatus(`Showing ${(page-1)*PAGE_SIZE + 1}–${Math.min(page*PAGE_SIZE, totalResults)} of <strong>${totalResults.toLocaleString()}</strong> certificates`);
       } else {
-        renderSimplePagination(page, hasMore);
+        renderSimplePagination(page, hasMore, document.getElementById('pagination'));
         setStatus(`Showing ${(page-1)*PAGE_SIZE + 1}–${(page-1)*PAGE_SIZE + rows.length} certificates${hasMore ? ' (more available)' : ''}`);
       }
     }
@@ -443,87 +417,14 @@ async function search(page = 1) {
   } finally {
     document.getElementById('search-btn').disabled = false;
   }
-}
-
-function renderResults(rows) {
-  if (!rows.length) return;
-  const grid = document.createElement('div');
-  grid.className = 'results-grid';
-
-  rows.forEach(row => {
-    const r = row['current-energy-rating'] || '?';
-    const color = RATING_COLORS[r] || '#aaa';
-    const score = parseInt(row['current-energy-efficiency'] || 0);
-    const address = [row['address1'], row['address2'], row['address3']].filter(Boolean).join(', ');
-    const postcode = row['postcode'] || '';
-    const inspDate = row['inspection-date'] ? formatDate(row['inspection-date']) : '–';
-    const lodgeDate = row['lodgement-date'] ? formatDate(row['lodgement-date']) : '–';
-    const propType = row['property-type'] || '–';
-    const builtForm = row['built-form'] || '';
-    const tenure = row['tenure'] || '–';
-    const totalFloor = row['total-floor-area'] ? `${row['total-floor-area']} m²` : '–';
-
-    const card = document.createElement('div');
-    card.className = 'epc-card';
-    card.style.setProperty('--rating-color', color);
-    card.innerHTML = `
-      <div class="rating-badge">${r}</div>
-      <div class="address">${address || '(no address)'}</div>
-      <div class="postcode">${postcode}</div>
-      <div class="meta">
-        <div class="meta-item"><div class="key">Property Type</div><div class="val">${propType}${builtForm ? ' · ' + builtForm : ''}</div></div>
-        <div class="meta-item"><div class="key">Tenure</div><div class="val">${capitalize(tenure)}</div></div>
-        <div class="meta-item"><div class="key">Floor Area</div><div class="val">${totalFloor}</div></div>
-        <div class="meta-item"><div class="key">EPC Score</div><div class="val">${score || '–'} / 100</div></div>
-        <div class="meta-item"><div class="key">Inspected</div><div class="val">${inspDate}</div></div>
-        <div class="meta-item"><div class="key">Lodged</div><div class="val">${lodgeDate}</div></div>
-      </div>
-      ${score ? `<div class="score-bar"><div class="score-bar-fill" style="width:${score}%"></div></div>` : ''}
-    `;
-    grid.appendChild(card);
-  });
-
-  document.getElementById('results').appendChild(grid);
-}
-
-function renderPagination(page, total) {
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-  if (totalPages <= 1) return;
-
-  const pag = document.getElementById('pagination');
-  pag.innerHTML = `
-    <button class="btn-page" onclick="search(${page - 1})" ${page <= 1 ? 'disabled' : ''}>← Prev</button>
-    <span>Page ${page} of ${totalPages.toLocaleString()}</span>
-    <button class="btn-page" onclick="search(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>Next →</button>
-  `;
-}
-
-function renderSimplePagination(page, hasMore) {
-  const pag = document.getElementById('pagination');
-  if (page <= 1 && !hasMore) return;
-  pag.innerHTML = `
-    <button class="btn-page" onclick="search(${page - 1})" ${page <= 1 ? 'disabled' : ''}>← Prev</button>
-    <span>Page ${page}</span>
-    <button class="btn-page" onclick="search(${page + 1})" ${!hasMore ? 'disabled' : ''}>Next →</button>
-  `;
-}
+};
 
 function setStatus(html) {
   document.getElementById('status').innerHTML = `<div id="status">${html}</div>`;
 }
 
-function formatDate(str) {
-  if (!str) return '–';
-  const d = new Date(str);
-  return isNaN(d) ? str : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function capitalize(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '–';
-}
-
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter') search(1);
+  if (e.key === 'Enter') window.search(1);
 });
 </script>
 </body>

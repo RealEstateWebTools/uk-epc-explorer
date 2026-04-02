@@ -1,17 +1,23 @@
 import { getRatingColor, formatDate, capitalize } from './utils.js';
 
+const REGISTER_BASE = 'https://find-energy-certificate.service.gov.uk/energy-certificate';
+
 export function buildCard(row) {
   const r = row['current-energy-rating'] || '?';
   const color = getRatingColor(r);
   const score = parseInt(row['current-energy-efficiency'] || 0);
   const address = [row['address1'], row['address2'], row['address3']].filter(Boolean).join(', ');
   const postcode = row['postcode'] || '';
-  const inspDate = row['inspection-date'] ? formatDate(row['inspection-date']) : '–';
   const lodgeDate = row['lodgement-date'] ? formatDate(row['lodgement-date']) : '–';
+  const inspDate = row['inspection-date'] ? formatDate(row['inspection-date']) : '–';
   const propType = row['property-type'] || '–';
   const builtForm = row['built-form'] || '';
   const tenure = row['tenure'] || '–';
   const totalFloor = row['total-floor-area'] ? `${row['total-floor-area']} m²` : '–';
+  const lmkKey = row['lmk-key'] || '';
+  const registerLink = lmkKey
+    ? `<a class="card-register-link" href="${REGISTER_BASE}/${lmkKey}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View on EPC Register ↗</a>`
+    : '';
 
   const card = document.createElement('div');
   card.className = 'epc-card';
@@ -29,6 +35,7 @@ export function buildCard(row) {
       <div class="meta-item"><div class="key">Lodged</div><div class="val">${lodgeDate}</div></div>
     </div>
     ${score ? `<div class="score-bar"><div class="score-bar-fill" style="width:${score}%"></div></div>` : ''}
+    ${registerLink}
   `;
   return card;
 }

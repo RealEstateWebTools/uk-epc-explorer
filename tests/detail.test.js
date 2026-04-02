@@ -385,6 +385,22 @@ describe('buildDetailPage', () => {
     expect(link).not.toBeNull();
   });
 
+  // Official register link
+  it('contains a link to the official EPC register', () => {
+    const link = page.querySelector('a[href*="find-energy-certificate"]');
+    expect(link).not.toBeNull();
+  });
+
+  it('includes the lmk-key in the official register link', () => {
+    const link = page.querySelector('a[href*="find-energy-certificate"]');
+    expect(link.href).toContain('31d68876');
+  });
+
+  it('opens the official register link in a new tab', () => {
+    const link = page.querySelector('a[href*="find-energy-certificate"]');
+    expect(link.target).toBe('_blank');
+  });
+
   // Missing data
   it('does not crash when optional fields are absent', () => {
     expect(() => buildDetailPage({ 'lmk-key': 'abc', 'current-energy-rating': 'C' })).not.toThrow();

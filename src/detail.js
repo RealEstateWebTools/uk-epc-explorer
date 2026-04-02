@@ -1,5 +1,7 @@
 import { getRatingColor, formatDate } from './utils.js';
 
+const REGISTER_BASE = 'https://find-energy-certificate.service.gov.uk/energy-certificate';
+
 const EFF_COLORS = {
   'Very Good': '#00813d',
   'Good':      '#1fac28',
@@ -119,7 +121,7 @@ export function buildDetailPage(row) {
   grid.className = 'detail-grid';
 
   // Certificate info
-  grid.appendChild(buildSectionCard('Certificate', [
+  const certCard = buildSectionCard('Certificate', [
     { label: 'LMK Key',          value: lmkKey ? lmkKey.slice(0, 16) + '…' : '–' },
     { label: 'UPRN',             value: row['uprn'] },
     { label: 'Inspected',        value: formatDate(row['inspection-date']) },
@@ -127,7 +129,17 @@ export function buildDetailPage(row) {
     { label: 'Transaction type', value: row['transaction-type'] },
     { label: 'Tenure',           value: row['tenure'] },
     { label: 'Report type',      value: row['report-type'] },
-  ]));
+  ]);
+  if (lmkKey) {
+    const link = document.createElement('a');
+    link.href = `${REGISTER_BASE}/${lmkKey}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.className = 'register-link';
+    link.textContent = 'View original certificate on EPC Register ↗';
+    certCard.appendChild(link);
+  }
+  grid.appendChild(certCard);
 
   // Property details
   grid.appendChild(buildSectionCard('Property', [

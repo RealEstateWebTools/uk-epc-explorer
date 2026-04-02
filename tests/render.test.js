@@ -12,6 +12,7 @@ function container() {
 }
 
 const fullRow = {
+  'lmk-key': 'abc123def456',
   'current-energy-rating': 'C',
   'current-energy-efficiency': '72',
   'address1': '20 Sidmouth Close',
@@ -59,6 +60,26 @@ describe('buildCard', () => {
   it('renders the postcode', () => {
     const card = buildCard(fullRow);
     expect(card.querySelector('.postcode').textContent.trim()).toBe('CV11 6FA');
+  });
+
+  it('includes a link to the official EPC register when lmk-key is present', () => {
+    const card = buildCard(fullRow);
+    const link = card.querySelector('a[href*="find-energy-certificate"]');
+    expect(link).not.toBeNull();
+    expect(link.href).toContain('abc123def456');
+  });
+
+  it('opens the official register link in a new tab', () => {
+    const card = buildCard(fullRow);
+    const link = card.querySelector('a[href*="find-energy-certificate"]');
+    expect(link.target).toBe('_blank');
+  });
+
+  it('omits the official register link when lmk-key is absent', () => {
+    const row = { ...fullRow };
+    delete row['lmk-key'];
+    const card = buildCard(row);
+    expect(card.querySelector('a[href*="find-energy-certificate"]')).toBeNull();
   });
 
   it('renders the score bar when efficiency score is present', () => {

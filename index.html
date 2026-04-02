@@ -374,6 +374,66 @@
 
     /* Loading state */
     #view-root { min-height: 200px; }
+
+    /* ── Register links ─────────────────────────────────────────── */
+    .card-register-link {
+      display: inline-block;
+      margin-top: 0.75rem;
+      font-size: 0.75rem;
+      color: #1a1a2e;
+      opacity: 0.5;
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.15s;
+    }
+    .card-register-link:hover { opacity: 1; text-decoration: underline; }
+
+    .register-link {
+      display: inline-block;
+      margin-top: 0.85rem;
+      font-size: 0.82rem;
+      color: #1a1a2e;
+      font-weight: 600;
+      text-decoration: none;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+    .register-link:hover { opacity: 1; text-decoration: underline; }
+
+    /* ── Data notice ────────────────────────────────────────────── */
+    .data-notice {
+      font-size: 0.8rem;
+      color: #888;
+      background: white;
+      border-radius: 8px;
+      padding: 0.65rem 1rem;
+      margin-bottom: 1rem;
+      border: 1px solid #eee;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .data-notice strong { color: #555; }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+    footer {
+      background: #1a1a2e;
+      color: rgba(255,255,255,0.55);
+      font-size: 0.78rem;
+      padding: 1.25rem 2rem;
+      margin-top: 3rem;
+      line-height: 1.6;
+    }
+    footer a { color: rgba(255,255,255,0.8); }
+    footer a:hover { color: white; }
+    footer .footer-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
   </style>
 </head>
 <body>
@@ -404,7 +464,11 @@
           <input type="password" id="api-key" placeholder="Your API key">
         </div>
       </div>
-      <p style="margin-top:0.5rem;font-size:0.8rem;color:#888">Credentials are stored in your browser only and never sent anywhere except the EPC API.</p>
+      <p style="margin-top:0.5rem;font-size:0.8rem;color:#888">
+        Your credentials are saved in your browser's <code>localStorage</code> only — they are never stored on any server.
+        Searches are sent directly from your browser to the EPC Register API
+        (<code>epc.opendatacommunities.org</code>). No data passes through this site's servers.
+      </p>
     </details>
   </div>
 
@@ -488,6 +552,10 @@ function renderSearch(root, filters = {}) {
         </div>
         <button class="btn-search" id="search-btn" onclick="window.runSearch(1)">Search</button>
       </div>
+    </div>
+    <div class="data-notice">
+      <span>ℹ</span>
+      <span>Data from the <strong>EPC Register</strong> (England &amp; Wales). Each certificate reflects the most recently lodged assessment — not necessarily the current property condition.</span>
     </div>
     <div id="status"></div>
     <div id="results"></div>
@@ -605,5 +673,19 @@ document.addEventListener('keydown', e => {
 
 render();
 </script>
+
+<footer>
+  <div class="footer-inner">
+    <span>
+      Contains public sector information from the
+      <a href="https://epc.opendatacommunities.org" target="_blank" rel="noopener noreferrer">Energy Performance of Buildings Register</a>,
+      published by the Department for Energy Security and Net Zero.
+      Licensed under the
+      <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noopener noreferrer">Open Government Licence v3.0</a>.
+    </span>
+    <span>Not an official government service.</span>
+  </div>
+</footer>
+
 </body>
 </html>

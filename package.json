@@ -1,0 +1,8 @@
+{
+  "name": "uk-epc-explorer",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npx serve . -p 3000",
+    "deploy": "npx wrangler pages deploy ."
+  }
+}

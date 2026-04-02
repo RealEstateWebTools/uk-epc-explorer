@@ -90,12 +90,13 @@ export function buildSearchParamsFor(type, filters, page) {
 }
 
 export function buildSearchParams(filters, page) {
-  const { postcode = '', localAuth = '', rating = '', fromYear = '' } = filters;
+  const { postcode = '', localAuth = '', rating = '', fromYear = '', ageBand = '' } = filters;
   const params = new URLSearchParams();
   if (postcode) params.set('postcode', postcode);
   if (localAuth) params.set('local-authority', localAuth);
   if (rating) params.set('energy-rating', rating);
   if (fromYear) params.set('from-year', fromYear);
+  if (ageBand) params.set('construction-age-band', ageBand);
   params.set('size', PAGE_SIZE);
   params.set('from', (page - 1) * PAGE_SIZE);
   return params;

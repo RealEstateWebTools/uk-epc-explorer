@@ -15,6 +15,7 @@ export function parseSearchFilters(searchStr) {
     localAuth: params.get('local-authority') || '',
     rating:    params.get('rating')          || '',
     fromYear:  params.get('from-year')       || '',
+    ageBand:   params.get('age-band')        || '',
     page:      page >= 1 ? page : 1,
   };
 }
@@ -25,6 +26,7 @@ export function buildSearchUrl(filters, page) {
   if (filters.localAuth) params.set('local-authority', filters.localAuth);
   if (filters.rating)    params.set('rating',          filters.rating);
   if (filters.fromYear)  params.set('from-year',       filters.fromYear);
+  if (filters.ageBand)   params.set('age-band',        filters.ageBand);
   if (page > 1)          params.set('page',            page);
   const qs = params.toString();
   return qs ? `/?${qs}` : '/';

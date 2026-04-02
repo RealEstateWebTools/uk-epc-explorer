@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDate, capitalize, RATING_COLORS, getRatingColor, getRatingTextColor, isValidUkPostcode, buildEmptyState } from '../src/utils.js';
+import { formatDate, capitalize, RATING_COLORS, getRatingColor, getRatingTextColor, isValidUkPostcode, buildEmptyState, getExpiryStatus, getRatingBandInfo } from '../src/utils.js';
 
 // ─── formatDate ───────────────────────────────────────────────────────────────
 
@@ -239,5 +239,86 @@ describe('buildEmptyState', () => {
   it('includes a hint to broaden the search', () => {
     const msg = buildEmptyState({ postcode: 'CV11 6FA' });
     expect(msg.toLowerCase()).toMatch(/broaden|try|nearby/);
+  });
+});
+
+// ─── getExpiryStatus ─────────────────────────────────────────────────────────
+
+describe('getExpiryStatus', () => {
+  it('returns valid for a certificate lodged recently', () => {
+    const { status } = getExpiryStatus('2020-01-01', new Date('2025-01-01'));
+    expect(status).toBe('valid');
+  });
+
+  it('returns expired for a certificate lodged more than 10 years ago', () => {
+    const { status } = getExpiryStatus('2010-01-01', new Date('2021-01-02'));
+    expect(status).toBe('expired');
+  });
+
+  it('returns expiring-soon when fewer than 365 days remain', () => {
+    const { status } = getExpiryStatus('2015-06-01', new Date('2025-05-20'));
+    expect(status).toBe('expiring-soon');
+  });
+
+  it('returns valid when exactly 365 days remain', () => {
+    const { status } = getExpiryStatus('2015-01-01', new Date('2024-01-01'));
+    expect(status).toBe('valid');
+  });
+
+  it('returns expired on the exact expiry date', () => {
+    const { status } = getExpiryStatus('2015-01-01', new Date('2025-01-01'));
+    expect(status).toBe('expired');
+  });
+
+  it('includes daysRemaining as a number', () => {
+    const { daysRemaining } = getExpiryStatus('2020-01-01', new Date('2025-01-01'));
+    expect(typeof daysRemaining).toBe('number');
+  });
+
+  it('daysRemaining is positive when certificate is valid', () => {
+    const { daysRemaining } = getExpiryStatus('2020-01-01', new Date('2025-01-01'));
+    expect(daysRemaining).toBeGreaterThan(0);
+  });
+
+  it('daysRemaining is 0 or negative when expired', () => {
+    const { daysRemaining } = getExpiryStatus('2010-01-01', new Date('2021-01-02'));
+    expect(daysRemaining).toBeLessThanOrEqual(0);
+  });
+
+  it('returns expired for a null lodgement date', () => {
+    const { status } = getExpiryStatus(null, new Date('2025-01-01'));
+    expect(status).toBe('expired');
+  });
+});
+
+// ─── getRatingBandInfo ────────────────────────────────────────────────────────
+
+describe('getRatingBandInfo', () => {
+  it('returns band info for rating A', () => {
+    const info = getRatingBandInfo('A');
+    expect(info.min).toBe(92);
+    expect(info.max).toBe(100);
+  });
+
+  it('returns band info for rating G', () => {
+    const info = getRatingBandInfo('G');
+    expect(info.min).toBe(1);
+    expect(info.max).toBe(20);
+  });
+
+  it('returns a non-empty description string', () => {
+    const info = getRatingBandInfo('D');
+    expect(typeof info.description).toBe('string');
+    expect(info.description.length).toBeGreaterThan(0);
+  });
+
+  it('covers all seven bands A–G', () => {
+    for (const r of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) {
+      expect(getRatingBandInfo(r)).not.toBeNull();
+    }
+  });
+
+  it('returns null for an unknown rating', () => {
+    expect(getRatingBandInfo('X')).toBeNull();
   });
 });

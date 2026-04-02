@@ -28,6 +28,35 @@ export function isValidUkPostcode(str) {
   return str ? UK_POSTCODE_RE.test(str.trim()) : false;
 }
 
+const CERTIFICATE_VALIDITY_YEARS = 10;
+const EXPIRY_WARNING_DAYS = 365;
+
+export function getExpiryStatus(lodgementDate, today = new Date()) {
+  if (!lodgementDate) return { status: 'expired', daysRemaining: 0 };
+  const lodged = new Date(lodgementDate);
+  const expiry = new Date(lodged);
+  expiry.setFullYear(expiry.getFullYear() + CERTIFICATE_VALIDITY_YEARS);
+  const msRemaining = expiry - today;
+  const daysRemaining = Math.floor(msRemaining / (1000 * 60 * 60 * 24));
+  if (daysRemaining <= 0) return { status: 'expired', daysRemaining, expiry };
+  if (daysRemaining < EXPIRY_WARNING_DAYS) return { status: 'expiring-soon', daysRemaining, expiry };
+  return { status: 'valid', daysRemaining, expiry };
+}
+
+const RATING_BANDS = {
+  A: { min: 92, max: 100, description: 'Very energy efficient' },
+  B: { min: 81, max: 91,  description: 'Energy efficient' },
+  C: { min: 69, max: 80,  description: 'Fairly energy efficient' },
+  D: { min: 55, max: 68,  description: 'Below average efficiency' },
+  E: { min: 39, max: 54,  description: 'Poor efficiency' },
+  F: { min: 21, max: 38,  description: 'Very poor efficiency' },
+  G: { min: 1,  max: 20,  description: 'Extremely poor efficiency' },
+};
+
+export function getRatingBandInfo(rating) {
+  return RATING_BANDS[rating] || null;
+}
+
 export function buildEmptyState(filters = {}) {
   const { postcode, localAuth } = filters;
 

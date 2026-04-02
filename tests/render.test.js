@@ -199,6 +199,42 @@ describe('buildCard', () => {
     });
     expect(typeVal.textContent.trim()).toBe('House');
   });
+
+  // ── Improvement delta (feature 3) ─────────────────────────────────────────
+
+  it('shows the improvement delta when current and potential ratings differ', () => {
+    const row = { ...fullRow, 'current-energy-rating': 'D', 'potential-energy-rating': 'B' };
+    const card = buildCard(row);
+    expect(card.textContent).toMatch(/D.*B|D\s*→\s*B/);
+  });
+
+  it('omits the improvement delta when current equals potential rating', () => {
+    const row = { ...fullRow, 'current-energy-rating': 'C', 'potential-energy-rating': 'C' };
+    const card = buildCard(row);
+    expect(card.querySelector('.improvement-delta')).toBeNull();
+  });
+
+  it('omits the improvement delta when potential rating is absent', () => {
+    const row = { ...fullRow };
+    delete row['potential-energy-rating'];
+    const card = buildCard(row);
+    expect(card.querySelector('.improvement-delta')).toBeNull();
+  });
+
+  // ── Tooltip on rating badge (feature 4) ───────────────────────────────────
+
+  it('rating badge has a title tooltip describing the band', () => {
+    const card = buildCard(fullRow); // fullRow has rating C
+    const badge = card.querySelector('.rating-badge');
+    expect(badge.getAttribute('title')).toMatch(/69|80|C/);
+  });
+
+  it('tooltip mentions the score range', () => {
+    const row = { ...fullRow, 'current-energy-rating': 'A' };
+    const card = buildCard(row);
+    const badge = card.querySelector('.rating-badge');
+    expect(badge.getAttribute('title')).toMatch(/92|100/);
+  });
 });
 
 // ─── renderResults ───────────────────────────────────────────────────────────

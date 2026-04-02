@@ -1,9 +1,10 @@
-import { getRatingColor, getRatingTextColor, formatDate, capitalize } from './utils.js';
+import { getRatingColor, getRatingTextColor, formatDate, capitalize, getRatingBandInfo, getExpiryStatus } from './utils.js';
 
 const REGISTER_SEARCH = 'https://find-energy-certificate.service.gov.uk/find-a-certificate/search-by-postcode';
 
 export function buildCard(row) {
   const r = row['current-energy-rating'] || '?';
+  const potR = row['potential-energy-rating'] || '';
   const color = getRatingColor(r);
   const score = parseInt(row['current-energy-efficiency'] || 0);
   const address = [row['address1'], row['address2'], row['address3']].filter(Boolean).join(', ');
@@ -20,11 +21,25 @@ export function buildCard(row) {
 
   const textColor = getRatingTextColor(r);
 
+  const bandInfo = getRatingBandInfo(r);
+  const tooltip = bandInfo ? `Rating ${r}: ${bandInfo.min}–${bandInfo.max} points (${bandInfo.description})` : `Rating ${r}`;
+
+  const delta = (potR && potR !== r)
+    ? `<div class="improvement-delta">Potential: <span class="delta-current">${r}</span> → <span class="delta-potential" style="color:${getRatingColor(potR)}">${potR}</span></div>`
+    : '';
+
+  const { status: expiryStatus, daysRemaining } = getExpiryStatus(row['lodgement-date']);
+  const expiryBadge = expiryStatus === 'expired'
+    ? `<div class="expiry-badge expiry-badge--expired">Certificate expired</div>`
+    : expiryStatus === 'expiring-soon'
+    ? `<div class="expiry-badge expiry-badge--soon">Expires in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}</div>`
+    : '';
+
   const card = document.createElement('div');
   card.className = 'epc-card';
   card.style.setProperty('--rating-color', color);
   card.innerHTML = `
-    <div class="rating-badge" aria-label="EPC rating: ${r}" style="color:${textColor}">${r}</div>
+    <div class="rating-badge" aria-label="EPC rating: ${r}" title="${tooltip}" style="color:${textColor}">${r}</div>
     <div class="address">${address || '(no address)'}</div>
     <div class="postcode">${postcode}</div>
     <div class="meta">
@@ -36,6 +51,8 @@ export function buildCard(row) {
       <div class="meta-item"><div class="key">Lodged</div><div class="val">${lodgeDate}</div></div>
     </div>
     ${score ? `<div class="score-bar"><div class="score-bar-fill" style="width:${score}%"></div></div>` : ''}
+    ${delta}
+    ${expiryBadge}
     ${registerLink}
   `;
   return card;

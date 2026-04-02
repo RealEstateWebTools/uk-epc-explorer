@@ -87,6 +87,24 @@ function renderSearch(root, filters = {}) {
           <label for="from-year">From Year</label>
           <input type="number" id="from-year" placeholder="2008" min="2008" max="2026" style="width:100px" value="${filters.fromYear || ''}">
         </div>
+        <div>
+          <label for="age-band">Age Band</label>
+          <select id="age-band">
+            <option value="">Any</option>
+            <option value="England and Wales: before 1900" ${filters.ageBand === 'England and Wales: before 1900' ? 'selected' : ''}>Before 1900</option>
+            <option value="England and Wales: 1900-1929" ${filters.ageBand === 'England and Wales: 1900-1929' ? 'selected' : ''}>1900–1929</option>
+            <option value="England and Wales: 1930-1949" ${filters.ageBand === 'England and Wales: 1930-1949' ? 'selected' : ''}>1930–1949</option>
+            <option value="England and Wales: 1950-1966" ${filters.ageBand === 'England and Wales: 1950-1966' ? 'selected' : ''}>1950–1966</option>
+            <option value="England and Wales: 1967-1975" ${filters.ageBand === 'England and Wales: 1967-1975' ? 'selected' : ''}>1967–1975</option>
+            <option value="England and Wales: 1976-1982" ${filters.ageBand === 'England and Wales: 1976-1982' ? 'selected' : ''}>1976–1982</option>
+            <option value="England and Wales: 1983-1990" ${filters.ageBand === 'England and Wales: 1983-1990' ? 'selected' : ''}>1983–1990</option>
+            <option value="England and Wales: 1991-1995" ${filters.ageBand === 'England and Wales: 1991-1995' ? 'selected' : ''}>1991–1995</option>
+            <option value="England and Wales: 1996-2002" ${filters.ageBand === 'England and Wales: 1996-2002' ? 'selected' : ''}>1996–2002</option>
+            <option value="England and Wales: 2003-2006" ${filters.ageBand === 'England and Wales: 2003-2006' ? 'selected' : ''}>2003–2006</option>
+            <option value="England and Wales: 2007-2011" ${filters.ageBand === 'England and Wales: 2007-2011' ? 'selected' : ''}>2007–2011</option>
+            <option value="England and Wales: 2012 onwards" ${filters.ageBand === 'England and Wales: 2012 onwards' ? 'selected' : ''}>2012 onwards</option>
+          </select>
+        </div>
         <button class="btn-search" id="search-btn" onclick="window.runSearch(1)">Search</button>
       </div>
     </div>
@@ -229,6 +247,7 @@ window.runSearch = async function runSearch(page = 1, prebuiltFilters) {
     localAuth: document.getElementById('local-authority').value.trim(),
     rating: document.getElementById('rating').value,
     fromYear: document.getElementById('from-year').value.trim(),
+    ageBand: document.getElementById('age-band').value,
   };
   const creds = getCredentials();
 

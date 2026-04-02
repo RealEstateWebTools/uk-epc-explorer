@@ -80,7 +80,7 @@ describe('navigate', () => {
 
 describe('parseSearchFilters', () => {
   it('returns all-empty defaults for an empty query string', () => {
-    expect(parseSearchFilters('')).toEqual({ postcode: '', localAuth: '', rating: '', fromYear: '', page: 1 });
+    expect(parseSearchFilters('')).toEqual({ postcode: '', localAuth: '', rating: '', fromYear: '', ageBand: '', page: 1 });
   });
 
   it('extracts postcode', () => {
@@ -122,6 +122,7 @@ describe('parseSearchFilters', () => {
       localAuth: 'Westminster',
       rating: 'A',
       fromYear: '2020',
+      ageBand: '',
       page: 2,
     });
   });
@@ -187,5 +188,27 @@ describe('buildSearchUrl', () => {
     expect(url).toContain('rating=A');
     expect(url).toContain('from-year=2020');
     expect(url).toContain('page=3');
+  });
+
+  it('includes age-band in the query string when set', () => {
+    const url = buildSearchUrl({ postcode: '', localAuth: '', rating: '', fromYear: '', ageBand: '1983-1990' }, 1);
+    expect(url).toContain('age-band=1983-1990');
+  });
+
+  it('omits age-band when empty', () => {
+    const url = buildSearchUrl({ postcode: 'SW1A', localAuth: '', rating: '', fromYear: '', ageBand: '' }, 1);
+    expect(url).not.toContain('age-band');
+  });
+});
+
+// ─── parseSearchFilters (age band) ───────────────────────────────────────────
+
+describe('parseSearchFilters age band', () => {
+  it('extracts age-band into ageBand', () => {
+    expect(parseSearchFilters('?age-band=1983-1990').ageBand).toBe('1983-1990');
+  });
+
+  it('defaults ageBand to empty string when absent', () => {
+    expect(parseSearchFilters('?postcode=SW1A').ageBand).toBe('');
   });
 });

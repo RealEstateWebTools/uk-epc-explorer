@@ -73,6 +73,16 @@ describe('buildSearchParams', () => {
     expect(p.has('from-year')).toBe(false);
   });
 
+  it('includes construction-age-band when ageBand is provided', () => {
+    const p = buildSearchParams({ ageBand: 'England and Wales: 1983-1990' }, 1);
+    expect(p.get('construction-age-band')).toBe('England and Wales: 1983-1990');
+  });
+
+  it('omits construction-age-band when ageBand is empty', () => {
+    const p = buildSearchParams({ ageBand: '' }, 1);
+    expect(p.has('construction-age-band')).toBe(false);
+  });
+
   it('always includes size = PAGE_SIZE', () => {
     const p = buildSearchParams({}, 1);
     expect(p.get('size')).toBe(String(PAGE_SIZE));

@@ -1,7 +1,0 @@
-# Hashed JS/CSS bundles — cache forever (filename changes on content change)
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
-
-# HTML — always revalidate (references latest hashed filenames)
-/index.html
-  Cache-Control: no-cache, must-revalidate

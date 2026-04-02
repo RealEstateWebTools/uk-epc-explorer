@@ -416,7 +416,7 @@
 import { buildCard, renderResults, renderPagination, renderSimplePagination } from './src/render.js';
 import { validateSearch, buildSearchParams, parseApiResponse, fetchEpcData, fetchCertificate } from './src/api.js';
 import { buildDetailPage } from './src/detail.js';
-import { parseRoute, navigate } from './src/router.js';
+import { parseRoute, parseSearchFilters, buildSearchUrl, navigate } from './src/router.js';
 
 const PAGE_SIZE = 25;
 
@@ -442,10 +442,6 @@ window.addEventListener('load', () => {
   if (!email || !key) document.getElementById('cred-details').open = true;
 });
 
-// ── Search state (preserved across back-navigation) ────────────────────────────
-
-let searchState = { page: 1, html: '' };
-
 // ── Router ─────────────────────────────────────────────────────────────────────
 
 async function render() {
@@ -455,45 +451,46 @@ async function render() {
   if (route.view === 'detail') {
     await renderDetail(root, route.lmkKey);
   } else {
-    renderSearch(root);
+    const filters = parseSearchFilters(window.location.search);
+    renderSearch(root, filters);
+    if (filters.postcode || filters.localAuth || filters.rating) {
+      await runSearch(filters.page, filters);
+    }
   }
 }
 
-function renderSearch(root) {
+function ratingOptions(selected) {
+  return ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G'].map(r =>
+    `<option value="${r}" ${r === selected ? 'selected' : ''}>${r || 'Any'}</option>`
+  ).join('');
+}
+
+function renderSearch(root, filters = {}) {
   root.innerHTML = `
     <div class="search-card">
       <h2>Search Properties</h2>
       <div class="filters">
         <div>
           <label for="postcode">Postcode</label>
-          <input type="text" id="postcode" placeholder="e.g. SW1A 1AA" maxlength="10">
+          <input type="text" id="postcode" placeholder="e.g. SW1A 1AA" maxlength="10" value="${filters.postcode || ''}">
         </div>
         <div>
           <label for="local-authority">Local Authority</label>
-          <input type="text" id="local-authority" placeholder="e.g. Westminster">
+          <input type="text" id="local-authority" placeholder="e.g. Westminster" value="${filters.localAuth || ''}">
         </div>
         <div>
           <label for="rating">EPC Rating</label>
-          <select id="rating">
-            <option value="">Any</option>
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-            <option value="D">D</option>
-            <option value="E">E</option>
-            <option value="F">F</option>
-            <option value="G">G</option>
-          </select>
+          <select id="rating">${ratingOptions(filters.rating || '')}</select>
         </div>
         <div>
           <label for="from-year">From Year</label>
-          <input type="number" id="from-year" placeholder="2008" min="2008" max="2026" style="width:100px">
+          <input type="number" id="from-year" placeholder="2008" min="2008" max="2026" style="width:100px" value="${filters.fromYear || ''}">
         </div>
         <button class="btn-search" id="search-btn" onclick="window.runSearch(1)">Search</button>
       </div>
     </div>
     <div id="status"></div>
-    <div id="results">${searchState.html}</div>
+    <div id="results"></div>
     <div id="pagination"></div>
   `;
 }
@@ -518,8 +515,10 @@ async function renderDetail(root, lmkKey) {
 
 // ── Search ─────────────────────────────────────────────────────────────────────
 
-window.runSearch = async function runSearch(page = 1) {
-  const filters = {
+// runSearch(page, filters?) — filters is supplied when auto-running from a URL load,
+// otherwise it reads the current form values.
+window.runSearch = async function runSearch(page = 1, prebuiltFilters) {
+  const filters = prebuiltFilters || {
     postcode: document.getElementById('postcode').value.trim(),
     localAuth: document.getElementById('local-authority').value.trim(),
     rating: document.getElementById('rating').value,
@@ -533,7 +532,14 @@ window.runSearch = async function runSearch(page = 1) {
     return;
   }
 
-  document.getElementById('search-btn').disabled = true;
+  // Push unique URL for this search so it's bookmarkable and the back button works
+  const searchUrl = buildSearchUrl(filters, page);
+  if (window.location.pathname + window.location.search !== searchUrl) {
+    history.pushState(null, '', searchUrl);
+  }
+
+  const btn = document.getElementById('search-btn');
+  if (btn) btn.disabled = true;
   setStatus('<span class="spinner"></span> Searching...');
   document.getElementById('results').innerHTML = '';
   document.getElementById('pagination').innerHTML = '';
@@ -557,8 +563,7 @@ window.runSearch = async function runSearch(page = 1) {
         if (lmkKey) card.addEventListener('click', () => navigate(`/certificate/${lmkKey}`));
       });
 
-      searchState.html = resultsEl.innerHTML;
-
+      // Pagination buttons navigate to the URL for that page
       if (total != null) {
         renderPagination(page, totalResults, document.getElementById('pagination'));
         setStatus(`Showing ${(page-1)*PAGE_SIZE + 1}–${Math.min(page*PAGE_SIZE, totalResults)} of <strong>${totalResults.toLocaleString()}</strong> certificates`);
@@ -566,13 +571,23 @@ window.runSearch = async function runSearch(page = 1) {
         renderSimplePagination(page, hasMore, document.getElementById('pagination'));
         setStatus(`Showing ${(page-1)*PAGE_SIZE + 1}–${(page-1)*PAGE_SIZE + rows.length} certificates${hasMore ? ' (more available)' : ''}`);
       }
+
+      // Rewrite pagination onclick handlers to navigate via URL instead of calling runSearch directly
+      document.getElementById('pagination').querySelectorAll('button:not([disabled])').forEach(btn => {
+        const match = btn.getAttribute('onclick')?.match(/search\((\d+)\)/);
+        if (match) {
+          const targetPage = parseInt(match[1], 10);
+          btn.removeAttribute('onclick');
+          btn.addEventListener('click', () => navigate(buildSearchUrl(filters, targetPage)));
+        }
+      });
     }
   } catch (err) {
     setStatus('');
     document.getElementById('results').innerHTML = `<div class="error-msg"><strong>Error:</strong> ${err.message}</div>`;
   } finally {
-    const btn = document.getElementById('search-btn');
-    if (btn) btn.disabled = false;
+    const b = document.getElementById('search-btn');
+    if (b) b.disabled = false;
   }
 };
 

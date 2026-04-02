@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { parseRoute, navigate } from '../src/router.js';
+import { parseRoute, navigate, parseSearchFilters, buildSearchUrl } from '../src/router.js';
 
 // ─── parseRoute ───────────────────────────────────────────────────────────────
 
@@ -68,5 +68,124 @@ describe('navigate', () => {
     navigate('/certificate/abc123');
     navigate('/');
     expect(window.location.pathname).toBe('/');
+  });
+
+  it('preserves query string in the URL', () => {
+    navigate('/?postcode=CV11+6FA&rating=D');
+    expect(window.location.search).toBe('?postcode=CV11+6FA&rating=D');
+  });
+});
+
+// ─── parseSearchFilters ───────────────────────────────────────────────────────
+
+describe('parseSearchFilters', () => {
+  it('returns all-empty defaults for an empty query string', () => {
+    expect(parseSearchFilters('')).toEqual({ postcode: '', localAuth: '', rating: '', fromYear: '', page: 1 });
+  });
+
+  it('extracts postcode', () => {
+    expect(parseSearchFilters('?postcode=CV11+6FA').postcode).toBe('CV11 6FA');
+  });
+
+  it('extracts local-authority into localAuth', () => {
+    expect(parseSearchFilters('?local-authority=Westminster').localAuth).toBe('Westminster');
+  });
+
+  it('extracts rating', () => {
+    expect(parseSearchFilters('?rating=D').rating).toBe('D');
+  });
+
+  it('extracts from-year into fromYear', () => {
+    expect(parseSearchFilters('?from-year=2020').fromYear).toBe('2020');
+  });
+
+  it('extracts page as an integer', () => {
+    expect(parseSearchFilters('?page=3').page).toBe(3);
+  });
+
+  it('defaults page to 1 when absent', () => {
+    expect(parseSearchFilters('?postcode=SW1A').page).toBe(1);
+  });
+
+  it('defaults page to 1 for a non-numeric page value', () => {
+    expect(parseSearchFilters('?page=abc').page).toBe(1);
+  });
+
+  it('defaults page to 1 for page=0', () => {
+    expect(parseSearchFilters('?page=0').page).toBe(1);
+  });
+
+  it('extracts all filters simultaneously', () => {
+    const qs = '?postcode=SW1A&local-authority=Westminster&rating=A&from-year=2020&page=2';
+    expect(parseSearchFilters(qs)).toEqual({
+      postcode: 'SW1A',
+      localAuth: 'Westminster',
+      rating: 'A',
+      fromYear: '2020',
+      page: 2,
+    });
+  });
+
+  it('handles a query string without the leading "?"', () => {
+    expect(parseSearchFilters('postcode=SW1A').postcode).toBe('SW1A');
+  });
+});
+
+// ─── buildSearchUrl ───────────────────────────────────────────────────────────
+
+describe('buildSearchUrl', () => {
+  it('returns "/" when no filters are set and page is 1', () => {
+    expect(buildSearchUrl({ postcode: '', localAuth: '', rating: '', fromYear: '' }, 1)).toBe('/');
+  });
+
+  it('includes postcode in the query string', () => {
+    expect(buildSearchUrl({ postcode: 'CV11 6FA', localAuth: '', rating: '', fromYear: '' }, 1))
+      .toContain('postcode=CV11+6FA');
+  });
+
+  it('includes local-authority in the query string', () => {
+    expect(buildSearchUrl({ postcode: '', localAuth: 'Westminster', rating: '', fromYear: '' }, 1))
+      .toContain('local-authority=Westminster');
+  });
+
+  it('includes rating in the query string', () => {
+    expect(buildSearchUrl({ postcode: '', localAuth: '', rating: 'D', fromYear: '' }, 1))
+      .toContain('rating=D');
+  });
+
+  it('includes from-year in the query string', () => {
+    expect(buildSearchUrl({ postcode: '', localAuth: '', rating: '', fromYear: '2020' }, 1))
+      .toContain('from-year=2020');
+  });
+
+  it('omits page param on page 1', () => {
+    const url = buildSearchUrl({ postcode: 'SW1A', localAuth: '', rating: '', fromYear: '' }, 1);
+    expect(url).not.toContain('page=');
+  });
+
+  it('includes page param on page 2+', () => {
+    const url = buildSearchUrl({ postcode: 'SW1A', localAuth: '', rating: '', fromYear: '' }, 2);
+    expect(url).toContain('page=2');
+  });
+
+  it('omits empty filters from the query string', () => {
+    const url = buildSearchUrl({ postcode: 'SW1A', localAuth: '', rating: '', fromYear: '' }, 1);
+    expect(url).not.toContain('local-authority');
+    expect(url).not.toContain('rating');
+    expect(url).not.toContain('from-year');
+  });
+
+  it('builds a URL starting with "/"', () => {
+    expect(buildSearchUrl({ postcode: 'SW1A', localAuth: '', rating: '', fromYear: '' }, 1))
+      .toMatch(/^\//);
+  });
+
+  it('includes all filters when all are set', () => {
+    const url = buildSearchUrl({ postcode: 'SW1A', localAuth: 'Westminster', rating: 'A', fromYear: '2020' }, 3);
+    expect(url).toContain('postcode=SW1A');
+    expect(url).toContain('local-authority=Westminster');
+    expect(url).toContain('rating=A');
+    expect(url).toContain('from-year=2020');
+    expect(url).toContain('page=3');
   });
 });

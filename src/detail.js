@@ -2,6 +2,55 @@ import { getRatingColor, getRatingTextColor, formatDate } from './utils.js';
 
 const REGISTER_SEARCH = 'https://find-energy-certificate.service.gov.uk/find-a-certificate/search-by-postcode';
 
+function buildExternalLinks(row) {
+  const postcode = (row['postcode'] || '').trim();
+  const uprn = (row['uprn'] || '').trim();
+  const address = [row['address1'], row['address2'], row['address3']].filter(Boolean).join(' ');
+  const q = encodeURIComponent(`${address} ${postcode}`.trim());
+  const pc = encodeURIComponent(postcode);
+
+  const links = [];
+
+  if (postcode) {
+    links.push(
+      { label: 'Flood risk',        href: `https://check-long-term-flood-risk.service.gov.uk/postcode?postcode=${pc}` },
+      { label: 'Rightmove prices',  href: `https://www.rightmove.co.uk/house-prices/${pc}.html` },
+      { label: 'Zoopla prices',     href: `https://www.zoopla.co.uk/house-prices/${pc}/` },
+      { label: 'Broadband (Ofcom)', href: `https://checker.ofcom.org.uk/en-gb/broadband-coverage?postcode=${pc}` },
+      { label: 'Crime stats',       href: `https://www.police.uk/pu/your-area/your-neighbourhood/?q=${pc}` },
+      { label: 'Schools nearby',    href: `https://www.compare-school-performance.service.gov.uk/schools-by-type?postcode=${pc}` },
+    );
+  }
+  if (uprn) {
+    links.push({ label: 'UPRN lookup', href: `https://uprn.uk/${uprn}` });
+  }
+  if (q) {
+    links.push(
+      { label: 'Street View',  href: `https://maps.google.com/?q=${q}&layer=c` },
+      { label: 'Google Maps',  href: `https://maps.google.com/?q=${q}` },
+    );
+  }
+
+  if (!links.length) return null;
+
+  const section = document.createElement('div');
+  section.className = 'related-links';
+  section.innerHTML = '<h3 class="related-links-title">Related Links</h3>';
+  const list = document.createElement('div');
+  list.className = 'related-links-list';
+  links.forEach(({ label, href }) => {
+    const a = document.createElement('a');
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.className = 'related-link';
+    a.textContent = `${label} ↗`;
+    list.appendChild(a);
+  });
+  section.appendChild(list);
+  return section;
+}
+
 const EFF_COLORS = {
   'Very Good': '#00813d',
   'Good':      '#1fac28',
@@ -216,5 +265,9 @@ export function buildDetailPage(row) {
   ]));
 
   page.appendChild(grid);
+
+  const relLinks = buildExternalLinks(row);
+  if (relLinks) page.appendChild(relLinks);
+
   return page;
 }

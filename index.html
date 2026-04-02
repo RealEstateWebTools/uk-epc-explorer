@@ -273,6 +273,107 @@
 
     .btn-page:hover:not(:disabled) { border-color: #1a1a2e; background: #f8f8f8; }
     .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── EPC card click ─────────────────────────────────────────── */
+    .epc-card { cursor: pointer; transition: box-shadow 0.15s, transform 0.15s; }
+    .epc-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); transform: translateY(-1px); }
+
+    /* ── Detail page ────────────────────────────────────────────── */
+    .detail-page { animation: fadein 0.2s ease; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: #1a1a2e;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+    .back-link:hover { opacity: 1; }
+
+    .detail-header {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      margin-bottom: 1.25rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1.5rem;
+      align-items: start;
+    }
+    @media (max-width: 650px) { .detail-header { grid-template-columns: 1fr; } }
+
+    .detail-address-main { font-size: 1.3rem; font-weight: 700; line-height: 1.2; }
+    .detail-address-postcode { font-size: 0.95rem; color: #666; margin-top: 0.25rem; }
+    .detail-authority { font-size: 0.8rem; color: #999; margin-top: 0.2rem; }
+
+    .detail-ratings { display: flex; gap: 1.5rem; }
+    .detail-rating-col { min-width: 160px; }
+    .detail-rating-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; color: #888; margin-bottom: 0.4rem; }
+
+    .rating-bar { --rating-color: #aaa; }
+    .rating-bar-label {
+      display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;
+    }
+    .rating-letter {
+      width: 2rem; height: 2rem; border-radius: 5px; color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; font-weight: 800;
+    }
+    .rating-score { font-size: 0.9rem; font-weight: 600; color: #444; }
+    .rating-bar-track { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+    .rating-bar-fill { height: 100%; border-radius: 4px; }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+
+    .detail-card {
+      background: white; border-radius: 10px; padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+    }
+    .detail-card-title {
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #888; margin-bottom: 0.85rem;
+      padding-bottom: 0.6rem; border-bottom: 1px solid #f0f0f0;
+    }
+    .detail-row {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 1rem; padding: 0.3rem 0; font-size: 0.85rem;
+      border-bottom: 1px solid #fafafa;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: #888; flex-shrink: 0; }
+    .detail-value { color: #222; font-weight: 500; text-align: right; display: flex; align-items: center; gap: 0.4rem; }
+
+    .eff-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Running costs table */
+    .cost-header, .cost-row {
+      display: grid;
+      grid-template-columns: 1fr 80px 80px 80px;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      padding: 0.3rem 0;
+      border-bottom: 1px solid #fafafa;
+    }
+    .cost-row:last-child { border-bottom: none; font-weight: 700; border-top: 1px solid #eee; padding-top: 0.5rem; margin-top: 0.25rem; }
+    .cost-col-head { color: #999; font-size: 0.75rem; font-weight: 600; text-align: right; }
+    .cost-label { color: #555; }
+    .cost-current, .cost-potential, .cost-saving { text-align: right; color: #333; font-weight: 500; }
+    .saving-positive { color: #00813d; font-weight: 700; }
+
+    /* Loading state */
+    #view-root { min-height: 200px; }
   </style>
 </head>
 <body>
@@ -287,10 +388,11 @@
 
 <div class="container">
 
-  <div class="api-key-notice">
+  <!-- Credentials — always visible so they can be set before navigating to a detail URL -->
+  <div class="api-key-notice" id="cred-notice">
     <strong>API key required</strong> — EPC data is free but needs a key.
     <a href="https://epc.opendatacommunities.org/login" target="_blank">Register at epc.opendatacommunities.org</a> (instant, free).
-    <details>
+    <details id="cred-details">
       <summary>Enter your credentials</summary>
       <div class="api-key-row">
         <div>
@@ -306,52 +408,19 @@
     </details>
   </div>
 
-  <div class="search-card">
-    <h2>Search Properties</h2>
-    <div class="filters">
-      <div>
-        <label for="postcode">Postcode</label>
-        <input type="text" id="postcode" placeholder="e.g. SW1A 1AA" maxlength="10">
-      </div>
-      <div>
-        <label for="local-authority">Local Authority</label>
-        <input type="text" id="local-authority" placeholder="e.g. Westminster">
-      </div>
-      <div>
-        <label for="rating">EPC Rating</label>
-        <select id="rating">
-          <option value="">Any</option>
-          <option value="A">A</option>
-          <option value="B">B</option>
-          <option value="C">C</option>
-          <option value="D">D</option>
-          <option value="E">E</option>
-          <option value="F">F</option>
-          <option value="G">G</option>
-        </select>
-      </div>
-      <div>
-        <label for="from-year">From Year</label>
-        <input type="number" id="from-year" placeholder="2008" min="2008" max="2026" style="width:100px">
-      </div>
-      <button class="btn-search" id="search-btn" onclick="search(1)">Search</button>
-    </div>
-  </div>
-
-  <div id="status"></div>
-  <div id="results"></div>
-  <div id="pagination"></div>
+  <div id="view-root"></div>
 
 </div>
 
 <script type="module">
-import { RATING_COLORS, getRatingColor, formatDate, capitalize } from './src/utils.js';
 import { buildCard, renderResults, renderPagination, renderSimplePagination } from './src/render.js';
-import { validateSearch, buildSearchParams, parseApiResponse, fetchEpcData } from './src/api.js';
+import { validateSearch, buildSearchParams, parseApiResponse, fetchEpcData, fetchCertificate } from './src/api.js';
+import { buildDetailPage } from './src/detail.js';
+import { parseRoute, navigate } from './src/router.js';
 
 const PAGE_SIZE = 25;
-let currentPage = 1;
-let totalResults = 0;
+
+// ── Credentials ────────────────────────────────────────────────────────────────
 
 function getCredentials() {
   const email = document.getElementById('api-email').value.trim();
@@ -369,9 +438,87 @@ window.addEventListener('load', () => {
   const key = localStorage.getItem('epc_key');
   if (email) document.getElementById('api-email').value = email;
   if (key) document.getElementById('api-key').value = key;
+  // Open the details if no credentials saved yet
+  if (!email || !key) document.getElementById('cred-details').open = true;
 });
 
-window.search = async function search(page = 1) {
+// ── Search state (preserved across back-navigation) ────────────────────────────
+
+let searchState = { page: 1, html: '' };
+
+// ── Router ─────────────────────────────────────────────────────────────────────
+
+async function render() {
+  const root = document.getElementById('view-root');
+  const route = parseRoute(window.location.pathname);
+
+  if (route.view === 'detail') {
+    await renderDetail(root, route.lmkKey);
+  } else {
+    renderSearch(root);
+  }
+}
+
+function renderSearch(root) {
+  root.innerHTML = `
+    <div class="search-card">
+      <h2>Search Properties</h2>
+      <div class="filters">
+        <div>
+          <label for="postcode">Postcode</label>
+          <input type="text" id="postcode" placeholder="e.g. SW1A 1AA" maxlength="10">
+        </div>
+        <div>
+          <label for="local-authority">Local Authority</label>
+          <input type="text" id="local-authority" placeholder="e.g. Westminster">
+        </div>
+        <div>
+          <label for="rating">EPC Rating</label>
+          <select id="rating">
+            <option value="">Any</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+            <option value="F">F</option>
+            <option value="G">G</option>
+          </select>
+        </div>
+        <div>
+          <label for="from-year">From Year</label>
+          <input type="number" id="from-year" placeholder="2008" min="2008" max="2026" style="width:100px">
+        </div>
+        <button class="btn-search" id="search-btn" onclick="window.runSearch(1)">Search</button>
+      </div>
+    </div>
+    <div id="status"></div>
+    <div id="results">${searchState.html}</div>
+    <div id="pagination"></div>
+  `;
+}
+
+async function renderDetail(root, lmkKey) {
+  root.innerHTML = '<div style="padding:2rem;text-align:center"><span class="spinner"></span> Loading certificate…</div>';
+  const creds = getCredentials();
+  try {
+    const row = await fetchCertificate(lmkKey, creds);
+    root.innerHTML = '';
+    root.appendChild(buildDetailPage(row));
+    // Back link uses navigate so results are preserved
+    root.querySelector('a[href="/"]').addEventListener('click', e => {
+      e.preventDefault();
+      navigate('/');
+    });
+  } catch (err) {
+    root.innerHTML = `<div class="error-msg"><strong>Error:</strong> ${err.message}</div>
+      <p style="margin-top:1rem"><a href="/" onclick="event.preventDefault();window.navigate('/')">← Back to search</a></p>`;
+  }
+}
+
+// ── Search ─────────────────────────────────────────────────────────────────────
+
+window.runSearch = async function runSearch(page = 1) {
   const filters = {
     postcode: document.getElementById('postcode').value.trim(),
     localAuth: document.getElementById('local-authority').value.trim(),
@@ -386,7 +533,6 @@ window.search = async function search(page = 1) {
     return;
   }
 
-  currentPage = page;
   document.getElementById('search-btn').disabled = true;
   setStatus('<span class="spinner"></span> Searching...');
   document.getElementById('results').innerHTML = '';
@@ -396,13 +542,23 @@ window.search = async function search(page = 1) {
     const params = buildSearchParams(filters, page);
     const data = await fetchEpcData(params, creds);
     const { rows, total, hasMore } = parseApiResponse(data);
-    totalResults = total ?? rows.length;
+    const totalResults = total ?? rows.length;
 
     if (rows.length === 0) {
       setStatus('');
       document.getElementById('results').innerHTML = '<div class="empty-state">No certificates found for your search.</div>';
     } else {
-      renderResults(rows, document.getElementById('results'));
+      const resultsEl = document.getElementById('results');
+      renderResults(rows, resultsEl);
+
+      // Make each card navigate to its detail page
+      resultsEl.querySelectorAll('.epc-card').forEach((card, i) => {
+        const lmkKey = rows[i]['lmk-key'];
+        if (lmkKey) card.addEventListener('click', () => navigate(`/certificate/${lmkKey}`));
+      });
+
+      searchState.html = resultsEl.innerHTML;
+
       if (total != null) {
         renderPagination(page, totalResults, document.getElementById('pagination'));
         setStatus(`Showing ${(page-1)*PAGE_SIZE + 1}–${Math.min(page*PAGE_SIZE, totalResults)} of <strong>${totalResults.toLocaleString()}</strong> certificates`);
@@ -415,17 +571,24 @@ window.search = async function search(page = 1) {
     setStatus('');
     document.getElementById('results').innerHTML = `<div class="error-msg"><strong>Error:</strong> ${err.message}</div>`;
   } finally {
-    document.getElementById('search-btn').disabled = false;
+    const btn = document.getElementById('search-btn');
+    if (btn) btn.disabled = false;
   }
 };
 
 function setStatus(html) {
-  document.getElementById('status').innerHTML = `<div id="status">${html}</div>`;
+  const el = document.getElementById('status');
+  if (el) el.innerHTML = html;
 }
 
+// ── Boot ───────────────────────────────────────────────────────────────────────
+
+window.addEventListener('popstate', render);
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter') window.search(1);
+  if (e.key === 'Enter' && window.location.pathname === '/') window.runSearch(1);
 });
+
+render();
 </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { buildSearchParams, validateSearch, fetchEpcData, parseApiResponse } from '../src/api.js';
+import { buildSearchParams, validateSearch, fetchEpcData, parseApiResponse, fetchCertificate } from '../src/api.js';
 
 const PAGE_SIZE = 25;
 
@@ -236,5 +236,77 @@ describe('fetchEpcData', () => {
   it('propagates a network error (fetch rejects)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network failure')));
     await expect(fetchEpcData(params, creds)).rejects.toThrow('Network failure');
+  });
+});
+
+// ─── fetchCertificate ────────────────────────────────────────────────────────
+
+describe('fetchCertificate', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const creds = { email: 'test@example.com', key: 'apikey123' };
+  const lmkKey = '31d68876c3693c993e2791b05544c569e9bc07916389b667aab0b892f7874550';
+  const certData = { rows: [{ 'lmk-key': lmkKey, 'current-energy-rating': 'D' }] };
+
+  function mockFetch(status, body) {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status,
+      ok: status >= 200 && status < 300,
+      statusText: status === 200 ? 'OK' : 'Error',
+      json: () => Promise.resolve(body),
+    }));
+  }
+
+  it('calls the certificate endpoint with the lmk-key', async () => {
+    mockFetch(200, certData);
+    await fetchCertificate(lmkKey, creds);
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain(`/domestic/certificate/${lmkKey}`);
+  });
+
+  it('sends a Basic Auth header', async () => {
+    mockFetch(200, certData);
+    await fetchCertificate(lmkKey, creds);
+    const { headers } = fetch.mock.calls[0][1];
+    expect(headers['Authorization']).toBe('Basic ' + btoa('test@example.com:apikey123'));
+  });
+
+  it('returns the first row of the response', async () => {
+    mockFetch(200, certData);
+    const row = await fetchCertificate(lmkKey, creds);
+    expect(row['lmk-key']).toBe(lmkKey);
+  });
+
+  it('throws a friendly error on 401', async () => {
+    mockFetch(401, {});
+    await expect(fetchCertificate(lmkKey, creds)).rejects.toThrow(/credentials/i);
+  });
+
+  it('throws a not-found error on 404', async () => {
+    mockFetch(404, {});
+    await expect(fetchCertificate(lmkKey, creds)).rejects.toThrow(/not found/i);
+  });
+
+  it('throws an API error on 500', async () => {
+    mockFetch(500, {});
+    await expect(fetchCertificate(lmkKey, creds)).rejects.toThrow(/500/);
+  });
+
+  it('propagates a network error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network failure')));
+    await expect(fetchCertificate(lmkKey, creds)).rejects.toThrow('Network failure');
+  });
+
+  it('throws if the response rows array is empty', async () => {
+    mockFetch(200, { rows: [] });
+    await expect(fetchCertificate(lmkKey, creds)).rejects.toThrow(/not found/i);
+  });
+
+  it('works with a legacy numeric lmk-key format', async () => {
+    const legacyKey = '1071900089432014012214354214278903';
+    mockFetch(200, { rows: [{ 'lmk-key': legacyKey }] });
+    await fetchCertificate(legacyKey, creds);
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain(legacyKey);
   });
 });

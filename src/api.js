@@ -1,5 +1,6 @@
 const PAGE_SIZE = 25;
-const API_BASE = 'https://epc.opendatacommunities.org/api/v1/domestic/search';
+const API_ROOT = 'https://epc.opendatacommunities.org/api/v1/domestic';
+const API_BASE = `${API_ROOT}/search`;
 
 export function validateSearch(filters, creds) {
   const { postcode, localAuth, rating } = filters;
@@ -44,4 +45,23 @@ export async function fetchEpcData(params, creds) {
   if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
 
   return res.json();
+}
+
+export async function fetchCertificate(lmkKey, creds) {
+  const url = `${API_ROOT}/certificate/${lmkKey}`;
+  const res = await fetch(url, {
+    headers: {
+      'Authorization': 'Basic ' + btoa(`${creds.email}:${creds.key}`),
+      'Accept': 'application/json',
+    },
+  });
+
+  if (res.status === 401) throw new Error('Invalid credentials. Check your email and API key.');
+  if (res.status === 404) throw new Error('Certificate not found.');
+  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+
+  const data = await res.json();
+  const rows = data.rows || [];
+  if (rows.length === 0) throw new Error('Certificate not found.');
+  return rows[0];
 }

@@ -418,15 +418,24 @@ async function search(page = 1) {
     if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
 
     const data = await res.json();
-    totalResults = data.total || 0;
-    renderResults(data.rows || []);
-    renderPagination(page, totalResults);
+    const rows = data.rows || [];
+    // API may not return a total count; fall back to rows length
+    totalResults = data.total != null ? data.total : rows.length;
+    const hasMore = rows.length === PAGE_SIZE;
 
-    if (totalResults === 0) {
+    if (rows.length === 0) {
       setStatus('');
       document.getElementById('results').innerHTML = '<div class="empty-state">No certificates found for your search.</div>';
     } else {
-      setStatus(`Showing ${(page-1)*PAGE_SIZE + 1}–${Math.min(page*PAGE_SIZE, totalResults)} of <strong>${totalResults.toLocaleString()}</strong> certificates`);
+      renderResults(rows);
+      // Only show pagination if API gave us a total, or if there's a full page (might be more)
+      if (data.total != null) {
+        renderPagination(page, totalResults);
+        setStatus(`Showing ${(page-1)*PAGE_SIZE + 1}–${Math.min(page*PAGE_SIZE, totalResults)} of <strong>${totalResults.toLocaleString()}</strong> certificates`);
+      } else {
+        renderSimplePagination(page, hasMore);
+        setStatus(`Showing ${(page-1)*PAGE_SIZE + 1}–${(page-1)*PAGE_SIZE + rows.length} certificates${hasMore ? ' (more available)' : ''}`);
+      }
     }
   } catch (err) {
     setStatus('');
@@ -486,6 +495,16 @@ function renderPagination(page, total) {
     <button class="btn-page" onclick="search(${page - 1})" ${page <= 1 ? 'disabled' : ''}>← Prev</button>
     <span>Page ${page} of ${totalPages.toLocaleString()}</span>
     <button class="btn-page" onclick="search(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>Next →</button>
+  `;
+}
+
+function renderSimplePagination(page, hasMore) {
+  const pag = document.getElementById('pagination');
+  if (page <= 1 && !hasMore) return;
+  pag.innerHTML = `
+    <button class="btn-page" onclick="search(${page - 1})" ${page <= 1 ? 'disabled' : ''}>← Prev</button>
+    <span>Page ${page}</span>
+    <button class="btn-page" onclick="search(${page + 1})" ${!hasMore ? 'disabled' : ''}>Next →</button>
   `;
 }
 

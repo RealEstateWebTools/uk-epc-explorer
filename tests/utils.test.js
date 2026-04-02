@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDate, capitalize, RATING_COLORS, getRatingColor } from '../src/utils.js';
+import { formatDate, capitalize, RATING_COLORS, getRatingColor, getRatingTextColor, isValidUkPostcode, buildEmptyState } from '../src/utils.js';
 
 // ─── formatDate ───────────────────────────────────────────────────────────────
 
@@ -130,5 +130,114 @@ describe('getRatingColor', () => {
 
   it('returns the fallback colour for the "?" sentinel', () => {
     expect(getRatingColor('?')).toBe('#aaa');
+  });
+});
+
+// ─── getRatingTextColor ───────────────────────────────────────────────────────
+
+describe('getRatingTextColor', () => {
+  it('returns white for A (dark green background)', () => {
+    expect(getRatingTextColor('A')).toBe('#ffffff');
+  });
+
+  it('returns white for B', () => {
+    expect(getRatingTextColor('B')).toBe('#ffffff');
+  });
+
+  it('returns dark for C (yellow-green — fails WCAG with white text)', () => {
+    expect(getRatingTextColor('C')).toBe('#1a1a2e');
+  });
+
+  it('returns dark for D (yellow — fails WCAG with white text)', () => {
+    expect(getRatingTextColor('D')).toBe('#1a1a2e');
+  });
+
+  it('returns white for E', () => {
+    expect(getRatingTextColor('E')).toBe('#ffffff');
+  });
+
+  it('returns white for F', () => {
+    expect(getRatingTextColor('F')).toBe('#ffffff');
+  });
+
+  it('returns white for G', () => {
+    expect(getRatingTextColor('G')).toBe('#ffffff');
+  });
+
+  it('returns white for unknown ratings', () => {
+    expect(getRatingTextColor('?')).toBe('#ffffff');
+  });
+
+  it('returns white for null', () => {
+    expect(getRatingTextColor(null)).toBe('#ffffff');
+  });
+});
+
+// ─── isValidUkPostcode ────────────────────────────────────────────────────────
+
+describe('isValidUkPostcode', () => {
+  it('accepts a standard postcode with space', () => {
+    expect(isValidUkPostcode('SW1A 1AA')).toBe(true);
+  });
+
+  it('accepts a postcode without space', () => {
+    expect(isValidUkPostcode('SW1A1AA')).toBe(true);
+  });
+
+  it('accepts a lowercase postcode', () => {
+    expect(isValidUkPostcode('cv11 6fa')).toBe(true);
+  });
+
+  it('accepts a short-form postcode like "CV11 6FA"', () => {
+    expect(isValidUkPostcode('CV11 6FA')).toBe(true);
+  });
+
+  it('rejects a plain word', () => {
+    expect(isValidUkPostcode('Westminster')).toBe(false);
+  });
+
+  it('rejects an empty string', () => {
+    expect(isValidUkPostcode('')).toBe(false);
+  });
+
+  it('rejects null', () => {
+    expect(isValidUkPostcode(null)).toBe(false);
+  });
+
+  it('rejects a partial postcode with only the outward code', () => {
+    expect(isValidUkPostcode('SW1A')).toBe(false);
+  });
+});
+
+// ─── buildEmptyState ─────────────────────────────────────────────────────────
+
+describe('buildEmptyState', () => {
+  it('returns a string', () => {
+    expect(typeof buildEmptyState({})).toBe('string');
+  });
+
+  it('gives a generic message when no filters are set', () => {
+    const msg = buildEmptyState({});
+    expect(msg.toLowerCase()).toContain('no certificates');
+  });
+
+  it('mentions the postcode when a valid postcode is given', () => {
+    const msg = buildEmptyState({ postcode: 'CV11 6FA' });
+    expect(msg).toContain('CV11 6FA');
+  });
+
+  it('suggests checking the format when the postcode looks invalid', () => {
+    const msg = buildEmptyState({ postcode: 'NOTAPOSTCODE' });
+    expect(msg.toLowerCase()).toMatch(/format|check/);
+  });
+
+  it('mentions the local authority when one is given', () => {
+    const msg = buildEmptyState({ localAuth: 'Westminster' });
+    expect(msg).toContain('Westminster');
+  });
+
+  it('includes a hint to broaden the search', () => {
+    const msg = buildEmptyState({ postcode: 'CV11 6FA' });
+    expect(msg.toLowerCase()).toMatch(/broaden|try|nearby/);
   });
 });

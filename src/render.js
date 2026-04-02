@@ -1,4 +1,4 @@
-import { getRatingColor, formatDate, capitalize } from './utils.js';
+import { getRatingColor, getRatingTextColor, formatDate, capitalize } from './utils.js';
 
 const REGISTER_BASE = 'https://find-energy-certificate.service.gov.uk/energy-certificate';
 
@@ -19,11 +19,13 @@ export function buildCard(row) {
     ? `<a class="card-register-link" href="${REGISTER_BASE}/${lmkKey}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">View on EPC Register ↗</a>`
     : '';
 
+  const textColor = getRatingTextColor(r);
+
   const card = document.createElement('div');
   card.className = 'epc-card';
   card.style.setProperty('--rating-color', color);
   card.innerHTML = `
-    <div class="rating-badge">${r}</div>
+    <div class="rating-badge" aria-label="EPC rating: ${r}" style="color:${textColor}">${r}</div>
     <div class="address">${address || '(no address)'}</div>
     <div class="postcode">${postcode}</div>
     <div class="meta">

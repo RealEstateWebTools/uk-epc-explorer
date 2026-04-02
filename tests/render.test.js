@@ -82,6 +82,43 @@ describe('buildCard', () => {
     expect(card.querySelector('a[href*="find-energy-certificate"]')).toBeNull();
   });
 
+  // ── Accessibility ──────────────────────────────────────────────────────────
+
+  it('rating badge has an aria-label describing the rating', () => {
+    const card = buildCard(fullRow);
+    const badge = card.querySelector('.rating-badge');
+    expect(badge.getAttribute('aria-label')).toMatch(/EPC rating/i);
+    expect(badge.getAttribute('aria-label')).toContain('C');
+  });
+
+  it('uses dark text colour for rating C (WCAG contrast)', () => {
+    const row = { ...fullRow, 'current-energy-rating': 'C' };
+    const card = buildCard(row);
+    const badge = card.querySelector('.rating-badge');
+    expect(badge.style.color).toBe('rgb(26, 26, 46)'); // #1a1a2e
+  });
+
+  it('uses dark text colour for rating D (WCAG contrast)', () => {
+    const row = { ...fullRow, 'current-energy-rating': 'D' };
+    const card = buildCard(row);
+    const badge = card.querySelector('.rating-badge');
+    expect(badge.style.color).toBe('rgb(26, 26, 46)');
+  });
+
+  it('uses white text colour for rating A', () => {
+    const row = { ...fullRow, 'current-energy-rating': 'A' };
+    const card = buildCard(row);
+    const badge = card.querySelector('.rating-badge');
+    expect(badge.style.color).toBe('rgb(255, 255, 255)');
+  });
+
+  it('uses white text colour for rating G', () => {
+    const row = { ...fullRow, 'current-energy-rating': 'G' };
+    const card = buildCard(row);
+    const badge = card.querySelector('.rating-badge');
+    expect(badge.style.color).toBe('rgb(255, 255, 255)');
+  });
+
   it('renders the score bar when efficiency score is present', () => {
     const card = buildCard(fullRow);
     const bar = card.querySelector('.score-bar-fill');

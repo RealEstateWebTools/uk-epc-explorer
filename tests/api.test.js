@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { buildSearchParams, validateSearch, fetchEpcData, parseApiResponse, fetchCertificate } from '../src/api.js';
+import { buildSearchParams, validateSearch, fetchEpcData, parseApiResponse, fetchCertificate, buildSearchParamsFor } from '../src/api.js';
 
 const PAGE_SIZE = 25;
 
@@ -308,5 +308,31 @@ describe('fetchCertificate', () => {
     await fetchCertificate(legacyKey, creds);
     const url = fetch.mock.calls[0][0];
     expect(url).toContain(legacyKey);
+  });
+});
+
+// ─── buildSearchParamsFor (commercial toggle) ─────────────────────────────────
+
+describe('buildSearchParamsFor', () => {
+  it('returns domestic API base URL for type "domestic"', () => {
+    const { url } = buildSearchParamsFor('domestic', {}, 1);
+    expect(url).toContain('/domestic/search');
+  });
+
+  it('returns non-domestic API base URL for type "non-domestic"', () => {
+    const { url } = buildSearchParamsFor('non-domestic', {}, 1);
+    expect(url).toContain('/non-domestic/search');
+  });
+
+  it('returns the same params structure as buildSearchParams', () => {
+    const filters = { postcode: 'SW1A', rating: 'C' };
+    const { params } = buildSearchParamsFor('domestic', filters, 1);
+    expect(params.get('postcode')).toBe('SW1A');
+    expect(params.get('energy-rating')).toBe('C');
+  });
+
+  it('defaults to domestic when type is unrecognised', () => {
+    const { url } = buildSearchParamsFor('unknown', {}, 1);
+    expect(url).toContain('/domestic/search');
   });
 });

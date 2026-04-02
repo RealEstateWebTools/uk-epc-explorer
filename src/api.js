@@ -1,5 +1,9 @@
 const PAGE_SIZE = 25;
-const API_ROOT = 'https://epc.opendatacommunities.org/api/v1/domestic';
+const API_ROOTS = {
+  domestic:     'https://epc.opendatacommunities.org/api/v1/domestic',
+  'non-domestic': 'https://epc.opendatacommunities.org/api/v1/non-domestic',
+};
+const API_ROOT = API_ROOTS.domestic;
 const API_BASE = `${API_ROOT}/search`;
 
 export function validateSearch(filters, creds) {
@@ -11,6 +15,11 @@ export function validateSearch(filters, creds) {
     return 'Please enter your EPC API credentials above.';
   }
   return null;
+}
+
+export function buildSearchParamsFor(type, filters, page) {
+  const root = API_ROOTS[type] || API_ROOT;
+  return { url: `${root}/search`, params: buildSearchParams(filters, page) };
 }
 
 export function buildSearchParams(filters, page) {
@@ -32,8 +41,8 @@ export function parseApiResponse(data) {
   return { rows, total, hasMore };
 }
 
-export async function fetchEpcData(params, creds) {
-  const url = `${API_BASE}?${params}`;
+export async function fetchEpcData(params, creds, baseUrl = API_BASE) {
+  const url = `${baseUrl}?${params}`;
   const res = await fetch(url, {
     headers: {
       'Authorization': 'Basic ' + btoa(`${creds.email}:${creds.key}`),

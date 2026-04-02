@@ -1,4 +1,4 @@
-import { getRatingColor, formatDate } from './utils.js';
+import { getRatingColor, getRatingTextColor, formatDate } from './utils.js';
 
 const REGISTER_BASE = 'https://find-energy-certificate.service.gov.uk/energy-certificate';
 
@@ -16,12 +16,13 @@ export function efficiencyColor(rating) {
 
 export function buildRatingBar(rating, score) {
   const color = getRatingColor(rating);
+  const textColor = getRatingTextColor(rating);
   const el = document.createElement('div');
   el.className = 'rating-bar';
   el.style.setProperty('--rating-color', color);
   el.innerHTML = `
     <div class="rating-bar-label">
-      <span class="rating-letter" style="background:${color}">${rating}</span>
+      <span class="rating-letter" style="background:${color};color:${textColor}" aria-label="EPC rating: ${rating}">${rating}</span>
       <span class="rating-score">${score || 0} / 100</span>
     </div>
     <div class="rating-bar-track">

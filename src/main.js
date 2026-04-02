@@ -5,6 +5,7 @@ import { parseRoute, parseSearchFilters, buildSearchUrl, navigate } from './rout
 import { sortResults, filterByRating, SORT_FIELDS } from './sort-filter.js';
 import { toCsv, downloadCsv } from './export.js';
 import { buildEmptyState } from './utils.js';
+import { saveSearch, getSavedSearches, deleteSavedSearch, buildSearchLabel } from './saved-searches.js';
 
 const PAGE_SIZE = 25;
 
@@ -276,6 +277,11 @@ window.runSearch = async function runSearch(page = 1, prebuiltFilters) {
     const { rows, total, hasMore } = parseApiResponse(data);
     const totalResults = total ?? rows.length;
 
+    if (page === 1) {
+      saveSearch(filters);
+      renderSavedSearches();
+    }
+
     if (rows.length === 0) {
       setStatus('');
       document.getElementById('results').innerHTML = `<div class="empty-state">${buildEmptyState(filters)}</div>`;
@@ -315,11 +321,52 @@ function setStatus(html) {
   if (el) el.innerHTML = html;
 }
 
+// ── Saved searches ─────────────────────────────────────────────────────────────
+
+function renderSavedSearches() {
+  const el = document.getElementById('saved-searches');
+  if (!el) return;
+  const searches = getSavedSearches();
+  if (!searches.length) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = `
+    <div class="saved-searches-panel">
+      <h3 class="saved-searches-title">Saved searches</h3>
+      <ul class="saved-searches-list">
+        ${searches.slice().reverse().map(s => `
+          <li class="saved-search-item">
+            <button class="saved-search-load" data-filters='${JSON.stringify(s.filters)}'>${s.label}</button>
+            <button class="saved-search-delete" aria-label="Delete saved search" data-id="${s.id}">✕</button>
+          </li>
+        `).join('')}
+      </ul>
+    </div>
+  `;
+}
+
+window.handleSavedSearchClick = function(e) {
+  const loadBtn = e.target.closest('.saved-search-load');
+  if (loadBtn) {
+    const filters = JSON.parse(loadBtn.dataset.filters);
+    navigate(buildSearchUrl(filters, 1));
+    return;
+  }
+  const deleteBtn = e.target.closest('.saved-search-delete');
+  if (deleteBtn) {
+    deleteSavedSearch(deleteBtn.dataset.id);
+    renderSavedSearches();
+  }
+};
+
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
 window.addEventListener('popstate', render);
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && window.location.pathname === '/') window.runSearch(1);
 });
+document.addEventListener('click', window.handleSavedSearchClick);
 
 render();
+renderSavedSearches();
